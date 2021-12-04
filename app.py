@@ -166,6 +166,7 @@ def make_solmap(month = 6):
     )
     max_y = max( [ max( [mdf_.elevation.max(), mdf_.peak_angle.max()] ) for mdf_ in mdf_list ] )
 
+    x = pd.
     fig.update_layout( 
         annotations = annotations,
         xaxis = dict(
