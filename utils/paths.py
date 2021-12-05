@@ -16,6 +16,7 @@ import plotly.io as pio
 import plotly as py
 
 from scipy.interpolate import interpn
+from scipy.signal import find_peaks
 
 import datetime as datetime
 from astropy.coordinates import get_sun, AltAz, EarthLocation
@@ -26,12 +27,9 @@ import matplotlib.pyplot as plt
 
 from utils.dataset import *
 
-def get_suntimes (peaks_df, sun_df, date = 'Today', print_times = False):
+def get_epochs (peaks_df, sun_df, date = 'Today', print_times = False):
     peaks_df = peaks_df.copy()
     sun_df = sun_df.copy()
-    peaks_df.set_index('bearing_deg', inplace = True)
-    peaks_df.drop(columns='bearing', inplace = True)
-    peaks_df.index = peaks_df.index.rename('bearing')
 
     sun_df.index = sun_df.azimuth.copy().rename('bearing')
 
@@ -39,7 +37,7 @@ def get_suntimes (peaks_df, sun_df, date = 'Today', print_times = False):
     mdf.peak_angle = mdf.peak_angle.interpolate('linear')
     mdf.dropna(subset = ['azimuth'], inplace = True)
     mdf.horizon = 0
-    mdf.reset_index(inplace = True)
+    # mdf.reset_index(inplace = True)
 
     # mtn_sunrise = Time( mdf.loc[mdf.peak_angle < mdf.elevation].time.min() ).to_value( format = 'ymdhms' )[[ 'hour', 'minute', 'second'] ] 
     # mtn_sunset = Time( mdf.loc[mdf.peak_angle < mdf.elevation].time.max() ).to_value( format = 'ymdhms' )[[ 'hour', 'minute', 'second'] ] 
@@ -71,6 +69,7 @@ def get_suntimes (peaks_df, sun_df, date = 'Today', print_times = False):
     df = mdf.loc[mdf.epoch%2 == 1].elevation - mdf.loc[mdf.epoch%2 == 1].peak_angle
     df = df.rename('el_diff')
     mdf = pd.concat([mdf, df], axis = 1).fillna(0)
+    mdf['bearing'] = mdf.index
 
     return mdf
 
@@ -120,6 +119,42 @@ def get_sun_path (gps_coords, height, date = None ):
     # dusk = daytime.tail(1).time + TimeDelta( 30 * u.min ).to_datetime()
     return df
 
+def get_sun_data(gps_coords, observer_height, peaks_df, start_date, final_date = None, td = None):
+    hour = np.arange(4, 22)
+    tdf_ = pd.DataFrame(columns = ['date', 'time', 'azimuth', 'elevation'])
+    tdf = tdf_.copy()
+    date = start_date
+    while date <= (start_date if final_date == None else final_date):
+        sun_df = get_sun_path(gps_coords, observer_height, date)
+        mdf = get_epochs (peaks_df, sun_df)
+        mdf['date'] = date
+        # time_df.index = ['azimuth', 'elevation']
+        amdf = pd.DataFrame()
+        for i in hour:
+            ind = mdf.time_since_midnight.sub( i*60 ).abs().idxmin()
+            tdf_.loc[i, 'azimuth'] = mdf.loc[ind, 'azimuth']
+            tdf_.loc[i, 'elevation'] = mdf.loc[ind, 'elevation'] 
+        tdf_['grad'] = np.gradient(tdf_.elevation, tdf_.azimuth)
+        tdf_['date'] = date
+        tdf_['time'] = hour
+        tdf_['midday_elev'] = max(mdf.elevation)
+        tdf = pd.concat([tdf, tdf_])
+        tdf.reset_index(drop = True, inplace = True)
+        amdf = pd.concat([amdf, mdf]) # Group all data into one 
+        date = date + ( datetime.timedelta(days = 1) if td == None else td) 
+
+    epoch_df = pd.DataFrame()
+    for date, gdf in amdf.groupby('date'):
+        gdf.sort_values('time_since_midnight', inplace =True)
+        epoch_df_ = pd.DataFrame(columns = ['date', 'epoch', 'start_time', 'end_time', 'daylight'])
+        for i, epoch in enumerate(gdf.epoch.unique()):
+            start = gdf.loc[ gdf.epoch == epoch , 'time_since_midnight' ].min()
+            end = gdf.loc[ gdf.epoch == epoch , 'time_since_midnight' ].max()
+            daylight = str( gdf.loc[ gdf.epoch == epoch , 'daylight' ].unique() )
+            epoch_df_.loc[i, :] = [ date, epoch, start, end, daylight ]
+        epoch_df = pd.concat([epoch_df, epoch_df_])
+
+    return mdf, tdf, epoch_df
 def get_peaks( array, observer_pixel, observer_height, radius, grid_size ):
     
     nrows,ncols = array.shape[1:]
@@ -157,254 +192,70 @@ def get_peaks( array, observer_pixel, observer_height, radius, grid_size ):
     
     return df
 
-def get_data(gps_coords, observer_height, peaks_df, start_date, final_date = None, td = None):
-    hour = np.arange(4, 22)
-    tdf_ = pd.DataFrame(columns = ['date', 'time', 'azimuth', 'elevation'])
-    tdf = tdf_.copy()
-    date = start_date
-    while date <= (start_date if final_date == None else final_date):
-        sun_df = get_sun_path(gps_coords, observer_height, date)
-        mdf = get_suntimes (peaks_df, sun_df)
-        mdf['date'] = date
-        # time_df.index = ['azimuth', 'elevation']
-        amdf = pd.DataFrame()
-        for i in hour:
-            ind = mdf.time_since_midnight.sub( i*60 ).abs().idxmin()
-            tdf_.loc[i, 'azimuth'] = mdf.loc[ind, 'azimuth']
-            tdf_.loc[i, 'elevation'] = mdf.loc[ind, 'elevation'] 
-        tdf_['grad'] = np.gradient(tdf_.elevation, tdf_.azimuth)
-        tdf_['date'] = date
-        tdf_['time'] = hour
-        tdf_['midday_elev'] = max(mdf.elevation)
-        tdf = pd.concat([tdf, tdf_])
-        tdf.reset_index(drop = True, inplace = True)
-        amdf = pd.concat([amdf, mdf]) # Group all data into one 
-        date = date + ( datetime.timedelta(days = 1) if td == None else td) 
+def get_peaks_forepeaks(array, observer_pixel, observer_height, radius, grid_size):
 
-    epoch_df = pd.DataFrame()
-    for date, gdf in amdf.groupby('date'):
-        gdf.sort_values('time_since_midnight', inplace =True)
-        epoch_df_ = pd.DataFrame(columns = ['date', 'epoch', 'start_time', 'end_time', 'daylight'])
-        for i, epoch in enumerate(gdf.epoch.unique()):
-            start = gdf.loc[ gdf.epoch == epoch , 'time_since_midnight' ].min()
-            end = gdf.loc[ gdf.epoch == epoch , 'time_since_midnight' ].max()
-            daylight = str( gdf.loc[ gdf.epoch == epoch , 'daylight' ].unique() )
-            epoch_df_.loc[i, :] = [ date, epoch, start, end, daylight ]
-        epoch_df = pd.concat([epoch_df, epoch_df_])
+    nrows,ncols = array.shape[1:]
+    x = np.arange(nrows)
+    y = np.arange(ncols)
+    xy_points = ( x, y )
 
-    return mdf, tdf, epoch_df
+    array_cartesian = np.flip(array[0,:,:], axis=0)
 
-def make_line_dict(x, y, color = 'black', width = .5):
-    return {'line': {
-                'color': color,
-                'dash': 'solid',
-                'width': width},
-            'mode': 'none',
-            'name': '_line0',
-            'showlegend' : False,
-            'x': x,
-            'xaxis': 'x',
-            'y': y,
-            'yaxis': 'y',
-            'type': 'scatter',
-            'fill':'tonexty'
-            }
+    observer_x = observer_pixel[1]
+    observer_y = array.shape[1] - observer_pixel[0]
 
-def make_annotation_dict(x, y, text, xshift):
-    return  {'text':text, 'x':float(x), 'y':float(y), 
-            'xanchor':'center', 
-            'yanchor':'middle', 
-            # 'height':30,
-            'xshift':10*xshift,
-            'yshift':-20,
-            'showarrow':False,
-            'textcolor':'white'
-            } 
+    angular_resolution = 1000 # / 360 deg
+    pixels = radius / grid_size 
+    peak = []
+    bearing_rad = np.linspace(0, np.pi * 2 , angular_resolution)
+    peaks_df = pd.DataFrame()
+    forepeaks_df = pd.DataFrame()
 
-def get_sun_lines(mdf):
-    lines = []
-    x = mdf.loc[ mdf.daylight == 'day' ].bearing
-    y = mdf.loc[ mdf.daylight == 'day' ].elevation
-    lines.append(dict(
-                type = 'scatter',
-                x = mdf.loc[ mdf.daylight == 'day' ].bearing,
-                y = mdf.loc[ mdf.daylight == 'day' ].elevation,
-                line = dict(
-                    color = 'white',
-                    width = 0.5),
-                # mode = 'none',
-            ))
+    for i, bearing_rad_ in enumerate( bearing_rad ):
+        step = np.arange(pixels)
+        x_vector = np.cos(bearing_rad_)
+        y_vector = np.sin(bearing_rad_)
+        x_sample =  observer_x + step * x_vector
+        y_sample =  observer_y + step * y_vector
 
-    # x = mdf.loc[ mdf.daylight == 'day' ].bearing
-    # y = mdf.loc[ mdf.daylight == 'day' ].elevation
-    # f = sns.lineplot(x = x, y = y , color = 'gold', linewidth=4)
+        inter_points = np.dstack((x_sample,y_sample)).squeeze(axis = 0)
 
-    # x = mdf.loc[ mdf.sunlight == 'morning_twighlight' ].azimuth
-    # y = mdf.loc[ mdf.sunlight == 'morning_twighlight' ].elevation
-    # # sns.lineplot(x = x, y = y , color = 'royalblue', linewidth=1)
-    # lines.append(make_line_dict(x, y, color = 'royalblue', width = .5))
+        heights = interpn(xy_points, array_cartesian, inter_points, \
+                    method = 'linear', bounds_error = False, fill_value = observer_height )   \
+                        - observer_height
+        distances = step * grid_size # in metres
+        elevations = np.arctan( heights / distances ) * 180/np.pi
+        max_elevation = max(elevations)
+        max_height = heights[np.where(elevations == max_elevation)] + observer_height
+        peak_distance = distances[np.where(elevations == max_elevation)]
+
+        bearing = bearing_rad_ * 180/np.pi
+
+        peak_elevations = list( (find_peaks( elevations, height = 0, prominence = 4, width = 2*grid_size ))[1]['peak_heights'] )
+        if peak_elevations: # If peak_elevatins is not empty
+            max_elevation = max( peak_elevations) 
+            peak_elevation_index = peak_elevations.index(max_elevation)
+            if peak_elevations[:peak_elevation_index]: # If there are any forepeaks:
+                plotting_elevations = [ max( peak_elevations[:peak_elevation_index] ) ]
+            else:
+                plotting_elevations = [-1]
+        else:
+            plotting_elevations = [-1]
+        d1 = { 'bearing':[bearing], 'peak_angle':[max_elevation], 'peak_height':max_height, 'peak_distance':peak_distance}
+        peaks_df_ = pd.DataFrame.from_dict(d1)
+        d2 = { 'forepeak_angle_' + str(i): [plotting_elevations[i]] for i in np.arange(len(plotting_elevations))}
+        d2['bearing'] = [bearing]
+        forepeaks_df_ = pd.DataFrame.from_dict(d2)
+
+        peaks_df = pd.concat([peaks_df, peaks_df_], axis = 0)
+        forepeaks_df= pd.concat([forepeaks_df, forepeaks_df_])
 
 
-    # x = mdf.loc[ mdf.sunlight == 'evening_twighlight' ].azimuth
-    # y = mdf.loc[ mdf.sunlight == 'evening_twighlight' ].elevation
-    # # sns.lineplot(x = x, y = y , color = 'royalblue', linewidth=1)
-    # lines.append(make_line_dict(x, y, color = 'royalblue', width = .5))
 
-    for epoch in mdf.epoch.unique():
-        if epoch%2 == 1:
-            x = mdf.loc[ mdf.epoch == epoch ].azimuth
-            y = mdf.loc[ mdf.epoch == epoch ].elevation
-            # sns.lineplot(x = x, y = y , color = 'gold', linewidth=4)
-            lines.append( dict(
-                type = 'scatter',
-                name = epoch,
-                x = x,
-                y = y,
-                line = dict(color = 'gold'),
-                mode = 'none',
-                # stackgroup = 'sun',
-                fill = 'tonext'
-                )
-            )
+    summits = find_peaks(peaks_df.peak_angle, height = 0, prominence = 5, width = 10 )
+    summits_df = peaks_df.iloc[ summits[0] ].astype(int)
+    peaks_df.set_index('bearing', inplace = True)
 
-    return lines            
+    forepeaks_df.set_index('bearing', inplace = True)
+    return peaks_df, forepeaks_df, summits_df
 
-
-def get_df_lists(gps_coords, radius, grid_size):
-    print('Getting geometry')
-    array, observer_pixel, observer_height  = get_masked_data(gps_coords, radius, grid_size)
-
-    peaks_df = get_peaks( array, observer_pixel, observer_height, radius, grid_size)
-    global mdf_list
-    global tdf_list
-    global amdf_list 
-    mdf_list, tdf_list, amdf_list  = [], [], []
-    for month in np.arange(1,13):
-        # td = datetime.timedelta(days = interval)
-        # final_date = start_date + n_intervals * td
-        year = 2021
-        day = 1
-        date = {'year':year,'month':month,'day':day}
-        date = datetime.date(year = date['year'], month = date['month'], day = date['day'])
-        mdf_,tdf_,amdf_  = get_data(gps_coords, observer_height, peaks_df, date)
-        mdf_list.append(mdf_)
-        tdf_list.append(tdf_)
-        amdf_list.append(amdf_)
-    # return mdf_list, tdf_list, amdf_list 
-
-def make_solmap(month = 6): 
-    mdf = mdf_list[month-1]
-    tdf = tdf_list[month-1]
-
-    peak_lines = dict(
-                    type = 'scatter',
-                    x = mdf.bearing,
-                    y = mdf.peak_angle,
-                    line = dict(color = 'gold'),
-                    mode = 'none',
-                    stackgroup = 'sun',
-                    fillcolor = 'black'
-                    # fill = 'tozeroy'
-                    )
-    diff_lines = dict(
-                    type = 'scatter',
-                    x = mdf.bearing,
-                    y = mdf.el_diff,
-                    line = dict(color = 'gold'),
-                    mode = 'none',
-                    stackgroup = 'sun',
-                    fillcolor = 'gold'
-                    # fill = 'tozeroy'
-                    )
-    sun_line = dict(
-                    type = 'scatter',
-                    x = mdf.loc[ mdf.daylight == 'day' ].bearing,
-                    y = mdf.loc[ mdf.daylight == 'day' ].elevation,
-                    line = dict(
-                        color = 'white',
-                        width = 0.5),
-                )
-    
-    ticks, annotations = get_annotations(tdf)
-
-    pio.templates.default = "simple_white"
-
-    fig = go.Figure()
-
-    fig.add_traces([
-        peak_lines,
-        diff_lines,
-        sun_line,
-    ])
-    fig.add_traces(
-        ticks
-    )
-    max_y = max( [ max( [mdf_.elevation.max(), mdf_.peak_angle.max()] ) for mdf_ in mdf_list ] )
-
-    fig.update_layout( 
-        annotations = annotations,
-        xaxis = dict(
-            tickmode = 'array',
-            tickvals = [0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315, 337.5, 360] ,
-            ticktext = ['N', 'ENE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NWN', 'N'],
-            range = [45, 315],
-        ),
-        yaxis = dict(
-            range = [0, max_y],
-            anchor = 'free',
-            position = 0.5,
-            visible = False,
-            scaleanchor = 'x',
-            scaleratio = 0.6
-        ),
-        showlegend=False,
-        autosize=True,
-        height=600,
-        # margin={'t': 50},
-        # margin=dict(
-        #     l=50,
-        #     r=50,
-        #     b=100,
-        #     t=100,
-        #     pad=4
-        # ),
-        paper_bgcolor="white",
-        font = dict( family = 'verdana', size = 12 )
-    )
-    return fig
-
-def get_annotations(tdf):
-    annotations = []
-    ticks = []
-    gdf = tdf.loc[tdf.elevation > 0].groupby('time')
-    for hour, df in gdf:
-        df = df.sort_values('date').reset_index()
-        # print(df.head)
-        x = float( df['azimuth' ] )
-        y = float( df['elevation' ] )
-        text = hour
-        grad = float( df.grad )
-        ticks.append(dict(
-            type = 'scatter',
-            x=[ x, x + 2 * grad],
-            y=[ y, y - 2] ,
-            line = dict( color="white", width=1), 
-            # fill = 'toself',
-            marker = None,
-            mode = 'lines',
-        ))
-        
-        # markers.append(make_marker_dict(x,y,hour))
-        annotations.append( dict(
-            text = str(text) + ':00',
-            x = x,
-            y = y,
-            xanchor = 'center',
-            yanchor = 'middle',
-            xshift = 15 * grad,
-            yshift = -20,
-            showarrow = False,
-            font = dict(color = 'white'),
-            opacity = 1
-        )    )
-    return ticks, annotations

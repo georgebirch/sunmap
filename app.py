@@ -99,8 +99,9 @@ def main():
 def get_df_lists(gps_coords, radius, grid_size):
     print('Getting geometry')
     array, observer_pixel, observer_height  = get_masked_data(gps_coords, radius, grid_size, path)
-
-    peaks_df = get_peaks( array, observer_pixel, observer_height, radius, grid_size)
+    global forepeaks_df
+    global summits_df
+    peaks_df, forepeaks_df, summits_df = get_peaks_forepeaks( array, observer_pixel, observer_height, radius, grid_size)
     global mdf_list
     global tdf_list
     global amdf_list 
@@ -112,7 +113,7 @@ def get_df_lists(gps_coords, radius, grid_size):
         day = 1
         date = {'year':year,'month':month,'day':day}
         date = datetime.date(year = date['year'], month = date['month'], day = date['day'])
-        mdf_,tdf_,amdf_  = get_data(gps_coords, observer_height, peaks_df, date)
+        mdf_,tdf_,amdf_  = get_sun_data(gps_coords, observer_height, peaks_df, date)
         mdf_list.append(mdf_)
         tdf_list.append(tdf_)
         amdf_list.append(amdf_)
@@ -165,6 +166,40 @@ def make_solmap(month = 6):
     fig.add_traces(
         ticks
     )
+
+    fig.add_trace(
+        dict(
+            type = 'scatter',
+            x = summits_df['bearing'],
+            y = summits_df['peak_angle'],
+            text = summits_df['peak_height'],
+            textfont = dict(
+                size = 12,
+                color = 'black'
+            ),
+            textposition = 'top center',
+            mode = 'markers+text',
+            marker=dict(
+                color='blue',
+                size=2
+            ),
+        )
+    )
+
+    # for column in forepeaks_df.columns:
+    #     print(column)
+    #     d1 = dict(
+    #         type='scatter',
+    #         x = forepeaks_df.index,
+    #         y = forepeaks_df[column],
+    #         mode = 'markers',
+    #         marker=dict(
+    #             color='white',
+    #             size=2
+    #         ),
+    #     )
+    #     fig.add_trace(d1)
+
     max_y = max( [ max( [mdf_.elevation.max(), mdf_.peak_angle.max()] ) for mdf_ in mdf_list ] )
 
     fig.update_layout( 
@@ -181,7 +216,7 @@ def make_solmap(month = 6):
             position = 0.5,
             visible = False,
             scaleanchor = 'x',
-            scaleratio = 0.6
+            scaleratio = 0.8
         ),
         showlegend=False,
         autosize=True,
