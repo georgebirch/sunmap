@@ -10,10 +10,11 @@ from dash import html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-gps_coords = 28.00603682759103, 86.8527006361936
+gps_coords = 46.5026174, 8.3203729
 # global radius, grid_size
 radius = 15000
-grid_size = 20
+grid_size = 10
+path = '/Users/george-birchenough/sunmap_rasters/Switzerland_DEM_10m.tif'
 
 
 def main():
@@ -97,7 +98,7 @@ def main():
 
 def get_df_lists(gps_coords, radius, grid_size):
     print('Getting geometry')
-    array, observer_pixel, observer_height  = get_masked_data(gps_coords, radius, grid_size)
+    array, observer_pixel, observer_height  = get_masked_data(gps_coords, radius, grid_size, path)
 
     peaks_df = get_peaks( array, observer_pixel, observer_height, radius, grid_size)
     global mdf_list
@@ -166,7 +167,6 @@ def make_solmap(month = 6):
     )
     max_y = max( [ max( [mdf_.elevation.max(), mdf_.peak_angle.max()] ) for mdf_ in mdf_list ] )
 
-    x = pd.
     fig.update_layout( 
         annotations = annotations,
         xaxis = dict(

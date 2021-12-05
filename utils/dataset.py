@@ -15,10 +15,10 @@ from pyproj import Transformer
 import geopandas as gpd
 from shapely.geometry import LineString, LinearRing, Polygon
 
-def get_masked_data(gps_coords, radius, grid_size):
+def get_masked_data(gps_coords, radius, grid_size, path):
 
     # path = 'DTM Switzerland 10m v2 by Sonny.tif'
-    path = '/Users/george-birchenough/sunmap_rasters/Himalaya_DEM_20m.tif'
+    # path = '/Users/george-birchenough/sunmap_rasters/Himalaya_DEM_20m.tif'
     src = rio.open(path)
 
     north_buffer = 0.2
@@ -42,7 +42,7 @@ def get_masked_data(gps_coords, radius, grid_size):
     lineStringObj = Polygon( [[a.x, a.y] for a in gdf.geometry.values] )
     line_dict = {'line':['line'], 'geometry':[lineStringObj]}
     shpgdf = gpd.GeoDataFrame(line_dict, crs = src.crs)
-    array, transform = rio.mask.mask(src, shpgdf.geometry, crop=True)
+    array, transform = rio.mask.mask(src, shpgdf.geometry, crop=True, all_touched = True)
     out_meta = src.meta
 
     out_meta.update({"driver": "GTiff",
