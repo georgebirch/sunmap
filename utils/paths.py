@@ -194,15 +194,15 @@ def get_peaks( array, observer_pixel, observer_height, radius, grid_size ):
 
 def get_peaks_forepeaks(array, observer_pixel, observer_height, radius, grid_size):
 
-    nrows,ncols = array.shape[1:]
+    nrows,ncols = array.shape
     x = np.arange(nrows)
     y = np.arange(ncols)
     xy_points = ( x, y )
 
-    array_cartesian = np.flip(array[0,:,:], axis=0)
+    array_cartesian = np.flip(array, axis=0)
 
     observer_x = observer_pixel[1]
-    observer_y = array.shape[1] - observer_pixel[0]
+    observer_y = array.shape[0] - observer_pixel[0]
 
     angular_resolution = 1000 # / 360 deg
     pixels = radius / grid_size 
@@ -241,7 +241,14 @@ def get_peaks_forepeaks(array, observer_pixel, observer_height, radius, grid_siz
                 plotting_elevations = [-1]
         else:
             plotting_elevations = [-1]
-        d1 = { 'bearing':[bearing], 'peak_angle':[max_elevation], 'peak_height':max_height, 'peak_distance':peak_distance}
+
+        d1 = {
+            'bearing':[bearing], 
+            'peak_angle':[max_elevation], 
+            'peak_height': [max_height], 
+            'peak_distance': [peak_distance]
+            }
+
         peaks_df_ = pd.DataFrame.from_dict(d1)
         d2 = { 'forepeak_angle_' + str(i): [plotting_elevations[i]] for i in np.arange(len(plotting_elevations))}
         d2['bearing'] = [bearing]
@@ -250,12 +257,9 @@ def get_peaks_forepeaks(array, observer_pixel, observer_height, radius, grid_siz
         peaks_df = pd.concat([peaks_df, peaks_df_], axis = 0)
         forepeaks_df= pd.concat([forepeaks_df, forepeaks_df_])
 
-
-
     summits = find_peaks(peaks_df.peak_angle, height = 0, prominence = 5, width = 10 )
     summits_df = peaks_df.iloc[ summits[0] ].astype(int)
     peaks_df.set_index('bearing', inplace = True)
 
     forepeaks_df.set_index('bearing', inplace = True)
     return peaks_df, forepeaks_df, summits_df
-

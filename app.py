@@ -10,9 +10,9 @@ from dash import html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-gps_coords = 46.5026174, 8.3203729
+gps_coords = 46.05470, 7.64547
 # global radius, grid_size
-radius = 15000
+radius = 10000
 grid_size = 10
 path = '/Users/george-birchenough/sunmap_rasters/Switzerland_DEM_10m.tif'
 

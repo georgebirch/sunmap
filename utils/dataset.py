@@ -59,8 +59,9 @@ def get_masked_data(gps_coords, radius, grid_size, path):
     observer_pixel = [ observer_row, observer_col] 
 
     observer_height =  array[0, observer_pixel[0] , observer_pixel[1]] + 2
+    array = array[0,:,:]
+
     return array, observer_pixel, observer_height
-    
 
 
 def get_square_masked_data(gps_coords, radius, grid_size, path):
@@ -105,5 +106,7 @@ def get_square_masked_data(gps_coords, radius, grid_size, path):
     observer_pixel = [ observer_row, observer_col] 
 
     observer_height =  array[0, observer_pixel[0] , observer_pixel[1]] + 2
+    array = array[0,:,:]
+
     return array, observer_pixel, observer_height
     
