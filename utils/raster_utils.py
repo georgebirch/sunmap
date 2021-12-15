@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 def get_azimuth_vector(azimuth):
+    # Calculate the cartesian vectors from the azimuth angles (clockwise from north)
     # Return the normalised vectors, and the quadrant (1 - 4)
     opp = abs( np.sin( (90 - azimuth) * np.pi / 180 ) )
     adj = (1 - opp**2)**0.5
