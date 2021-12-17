@@ -26,6 +26,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 
 from utils.dataset import *
+from utils.raster_utils import *
 
 def get_epochs (peaks_df, sun_df, date = 'Today', print_times = False):
     peaks_df = peaks_df.copy()
@@ -230,6 +231,77 @@ def get_peaks_forepeaks(array, observer_pixel, observer_height, radius, grid_siz
         peak_distance = distances[np.where(elevations == max_elevation)]
 
         bearing = bearing_rad_ * 180/np.pi
+
+        peak_elevations = list( (find_peaks( elevations, height = 0, prominence = 4, width = 2*grid_size ))[1]['peak_heights'] )
+        if peak_elevations: # If peak_elevatins is not empty
+            max_elevation = max( peak_elevations) 
+            peak_elevation_index = peak_elevations.index(max_elevation)
+            if peak_elevations[:peak_elevation_index]: # If there are any forepeaks:
+                plotting_elevations = [ max( peak_elevations[:peak_elevation_index] ) ]
+            else:
+                plotting_elevations = [-1]
+        else:
+            plotting_elevations = [-1]
+
+        d1 = {
+            'bearing':[bearing], 
+            'peak_angle':[max_elevation], 
+            'peak_height': [max_height], 
+            'peak_distance': [peak_distance]
+            }
+
+        peaks_df_ = pd.DataFrame.from_dict(d1)
+        d2 = { 'forepeak_angle_' + str(i): [plotting_elevations[i]] for i in np.arange(len(plotting_elevations))}
+        d2['bearing'] = [bearing]
+        forepeaks_df_ = pd.DataFrame.from_dict(d2)
+
+        peaks_df = pd.concat([peaks_df, peaks_df_], axis = 0)
+        forepeaks_df= pd.concat([forepeaks_df, forepeaks_df_])
+
+    summits = find_peaks(peaks_df.peak_angle, height = 0, prominence = 5, width = 10 )
+    summits_df = peaks_df.iloc[ summits[0] ].astype(int)
+    peaks_df.set_index('bearing', inplace = True)
+
+    forepeaks_df.set_index('bearing', inplace = True)
+    return peaks_df, forepeaks_df, summits_df
+
+def get_peaks_forepeaks2(array, observer_pixel, observer_height, radius, grid_size):
+
+    nrows,ncols = array.shape
+    xy_points = ( np.arange(nrows), np.arange(ncols))
+
+    array_cartesian = np.flip(array, axis=0)
+
+    observer_x = observer_pixel[1]
+    observer_y = array.shape[0] - observer_pixel[0]
+
+    angular_resolution = 1000 # / 360 deg
+    peak = []
+
+    bearings = np.linspace(0, 360 - 360/angular_resolution, angular_resolution)
+    peaks_df = pd.DataFrame()
+    forepeaks_df = pd.DataFrame()
+
+    for i, bearing in enumerate( bearings ):
+        x_vector, y_vector = get_azimuth_vector(bearing)
+        x_sample = observer_x
+        y_sample = observer_y
+        inter_points = [[y_sample, x_sample]]
+        while y_sample >= 0 and y_sample <= nrows  and x_sample >= 0 and x_sample <= ncols :
+
+            y_sample = y_sample + y_vector
+            x_sample = x_sample + x_vector
+            inter_points_ = [[y_sample, x_sample]]
+            inter_points = np.concatenate([ inter_points , inter_points_ ])
+
+        heights = interpn(xy_points, array_cartesian, inter_points, \
+                    method = 'linear', bounds_error = False, fill_value = observer_height )   \
+                        - observer_height
+        distances =  np.arange(1, len(inter_points) + 1) * grid_size  # in metres
+        elevations = np.arctan( heights / distances ) * 180/np.pi
+        max_elevation = max(elevations)
+        max_height = heights[np.where(elevations == max_elevation)] + observer_height
+        peak_distance = distances[np.where(elevations == max_elevation)]
 
         peak_elevations = list( (find_peaks( elevations, height = 0, prominence = 4, width = 2*grid_size ))[1]['peak_heights'] )
         if peak_elevations: # If peak_elevatins is not empty

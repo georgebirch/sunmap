@@ -7,13 +7,13 @@ def get_azimuth_vector(azimuth):
     opp = abs( np.sin( (90 - azimuth) * np.pi / 180 ) )
     adj = (1 - opp**2)**0.5
     if azimuth < 90:
-        return adj, opp, 1 
+        return adj, opp
     elif azimuth < 180:
-        return adj, -1*opp, 2
+        return adj, -1*opp
     elif azimuth < 270:
-        return -1*adj, -1*opp, 3
-    elif azimuth < 360:
-        return -1*adj, opp, 4
+        return -1*adj, -1*opp
+    elif azimuth <= 360:
+        return -1*adj, opp
 
 def get_shadows(heights, distances, inter_points, elevation):
     x = [inter_point[1] for inter_point in inter_points]

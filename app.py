@@ -10,9 +10,9 @@ from dash import html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-gps_coords = 46.05470, 7.64547
+gps_coords = 45.9884966021594, 7.660842528216456
 # global radius, grid_size
-radius = 10000
+radius = 2000
 grid_size = 10
 path = '/Users/george-birchenough/sunmap_rasters/Switzerland_DEM_10m.tif'
 
@@ -27,12 +27,12 @@ def main():
 
     app.layout = html.Div(children=[
    
-        html.Div(className='row',  # Define the row element
+        html.Div(
+            # className='row',  # Define the row element
             children=[
-                dcc.Input(id="input_coords", type="text", value=gps_coords),
+                dcc.Input(id="input_coords", type="text", value=str(gps_coords)),
+                # dcc.Input(id="input_coords", type="text", value=str(gps_coords[0],  )),
                 html.Button(id='btn_state', n_clicks = 0),
-                # dcc.Input(id="input_lon", type="number", value=7.9961, debounce=True),
-                html.Div(id='output_state')
             ] 
         ),
 
@@ -94,14 +94,14 @@ def main():
             return month
         else: return 6
 
-    app.run_server(port = 5000, debug = False)
+    app.run_server(port = 5000, debug = True)
 
 def get_df_lists(gps_coords, radius, grid_size):
     print('Getting geometry')
     array, observer_pixel, observer_height  = get_masked_data(gps_coords, radius, grid_size, path)
     global forepeaks_df
     global summits_df
-    peaks_df, forepeaks_df, summits_df = get_peaks_forepeaks( array, observer_pixel, observer_height, radius, grid_size)
+    peaks_df, forepeaks_df, summits_df = get_peaks_forepeaks2( array, observer_pixel, observer_height, radius, grid_size)
     global mdf_list
     global tdf_list
     global amdf_list 
@@ -186,19 +186,19 @@ def make_solmap(month = 6):
         )
     )
 
-    # for column in forepeaks_df.columns:
-    #     print(column)
-    #     d1 = dict(
-    #         type='scatter',
-    #         x = forepeaks_df.index,
-    #         y = forepeaks_df[column],
-    #         mode = 'markers',
-    #         marker=dict(
-    #             color='white',
-    #             size=2
-    #         ),
-    #     )
-    #     fig.add_trace(d1)
+    for column in forepeaks_df.columns:
+        # print(column)
+        d1 = dict(
+            type='scatter',
+            x = forepeaks_df.index,
+            y = forepeaks_df[column],
+            mode = 'markers',
+            marker=dict(
+                color='white',
+                size=2
+            ),
+        )
+        fig.add_trace(d1)
 
     max_y = max( [ max( [mdf_.elevation.max(), mdf_.peak_angle.max()] ) for mdf_ in mdf_list ] )
 
