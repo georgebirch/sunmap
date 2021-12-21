@@ -5,8 +5,6 @@ from rasterio import merge
 import pandas as pd
 import numpy as np
 
-import urllib.request
-
 import geopandas as gpd
 from shapely.geometry import LineString, LinearRing, Polygon
 

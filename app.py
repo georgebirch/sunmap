@@ -1,14 +1,10 @@
-from flask.scaffold import find_package
 from utils.paths import *
 from utils.dataset import *
 
-from pkg_resources import get_platform
-
 import dash
-from dash import dcc
+from dash import dcc 
 from dash import html
 from dash.dependencies import Input, Output, State
-from dash.exceptions import PreventUpdate
 
 gps_coords = 46.64290051851402, 8.142050364679308
 # global radius, grid_size
