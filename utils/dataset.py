@@ -42,7 +42,7 @@ def get_masked_data(gps_coords, radius, grid_size, path):
     lineStringObj = Polygon( [[a.x, a.y] for a in gdf.geometry.values] )
     line_dict = {'line':['line'], 'geometry':[lineStringObj]}
     shpgdf = gpd.GeoDataFrame(line_dict, crs = src.crs)
-    array, transform = rio.mask.mask(src, shpgdf.geometry, crop=True, all_touched = True)
+    array, transform = rio.mask.mask(src, shpgdf.geometry, crop=True, all_touched = True, nodata = 0)
     out_meta = src.meta
 
     out_meta.update({"driver": "GTiff",
@@ -56,13 +56,11 @@ def get_masked_data(gps_coords, radius, grid_size, path):
     observer_row = int(north_buffer * radius / grid_size)
     observer_col = int(array.shape[2] / 2)
 
-    observer_pixel = [ observer_row, observer_col] 
+    observer_pixel = [ observer_row, observer_col ] 
 
-    observer_height =  array[0, observer_pixel[0] , observer_pixel[1]] + 2
+    observer_height =  array[0, observer_pixel[0] , observer_pixel[1]] + 10
     array = array[0,:,:]
-
     return array, observer_pixel, observer_height
-
 
 def get_square_masked_data(gps_coords, radius, grid_size, path):
 
@@ -88,7 +86,7 @@ def get_square_masked_data(gps_coords, radius, grid_size, path):
     lineStringObj = Polygon( [[a.x, a.y] for a in gdf.geometry.values] )
     line_dict = {'line':['line'], 'geometry':[lineStringObj]}
     shpgdf = gpd.GeoDataFrame(line_dict, crs = src.crs)
-    array, transform = rio.mask.mask(src, shpgdf.geometry, crop=True, all_touched = True)
+    array, transform = rio.mask.mask(src, shpgdf.geometry, crop=True, all_touched = True, nodata = 0)
     out_meta = src.meta
 
     out_meta.update({"driver": "GTiff",
@@ -108,5 +106,5 @@ def get_square_masked_data(gps_coords, radius, grid_size, path):
     observer_height =  array[0, observer_pixel[0] , observer_pixel[1]] + 2
     array = array[0,:,:]
 
-    return array, observer_pixel, observer_height
+    return array.astype(int), observer_pixel, observer_height
     

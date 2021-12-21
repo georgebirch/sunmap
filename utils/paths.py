@@ -74,8 +74,8 @@ def get_epochs (peaks_df, sun_df, date = 'Today', print_times = False):
 
     return mdf
 
-def get_sun_path (gps_coords, height, date = None ): 
-    resolution = 500
+def get_sun_path (gps_coords, height, start_time = 0, end_time = 24, resolution = 500, date = None ): 
+
     CET = TimezoneInfo(utc_offset = 1*u.hour)
 
     if date == None:
@@ -90,7 +90,7 @@ def get_sun_path (gps_coords, height, date = None ):
 
     midnight_this_morning = datetime.datetime(year,month,day, 0,0,0 , tzinfo = CET)
 
-    time_since_midnight = np.linspace(0, 23*60 + 59, resolution) * u.min
+    time_since_midnight = np.linspace(start_time * 60, end_time * 60, resolution) * u.min
     time = ( Time(midnight_this_morning) + time_since_midnight )
     time = time.to_datetime(timezone=CET)
 
@@ -126,7 +126,7 @@ def get_sun_data(gps_coords, observer_height, peaks_df, start_date, final_date =
     tdf = tdf_.copy()
     date = start_date
     while date <= (start_date if final_date == None else final_date):
-        sun_df = get_sun_path(gps_coords, observer_height, date)
+        sun_df = get_sun_path(gps_coords, observer_height, date = date)
         mdf = get_epochs (peaks_df, sun_df)
         mdf['date'] = date
         # time_df.index = ['azimuth', 'elevation']
@@ -278,7 +278,7 @@ def get_peaks_forepeaks2(array, observer_pixel, observer_height, radius, grid_si
     angular_resolution = 1000 # / 360 deg
     peak = []
 
-    bearings = np.linspace(0, 360 - 360/angular_resolution, angular_resolution)
+    bearings = np.linspace(0, 360 , angular_resolution)
     peaks_df = pd.DataFrame()
     forepeaks_df = pd.DataFrame()
 
@@ -287,17 +287,17 @@ def get_peaks_forepeaks2(array, observer_pixel, observer_height, radius, grid_si
         x_sample = observer_x
         y_sample = observer_y
         inter_points = [[y_sample, x_sample]]
-        while y_sample >= 0 and y_sample <= nrows  and x_sample >= 0 and x_sample <= ncols :
+        while y_sample > 0 and y_sample < nrows  and x_sample > 0 and x_sample < ncols :
 
-            y_sample = y_sample + y_vector
+            y_sample = y_sample + y_vector 
             x_sample = x_sample + x_vector
             inter_points_ = [[y_sample, x_sample]]
             inter_points = np.concatenate([ inter_points , inter_points_ ])
 
         heights = interpn(xy_points, array_cartesian, inter_points, \
                     method = 'linear', bounds_error = False, fill_value = observer_height )   \
-                        - observer_height
-        distances =  np.arange(1, len(inter_points) + 1) * grid_size  # in metres
+                        - observer_height - 5
+        distances =  np.arange(1, len(inter_points)+1 ) * grid_size  # in metres
         elevations = np.arctan( heights / distances ) * 180/np.pi
         max_elevation = max(elevations)
         max_height = heights[np.where(elevations == max_elevation)] + observer_height

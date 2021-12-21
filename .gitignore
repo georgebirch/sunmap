@@ -1,3 +1,10 @@
+# heroku 
+venv
+*.pyc
+.DS_Store
+.env
+*.ipynb
+
 #  File types
 
 *.tif

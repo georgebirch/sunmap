@@ -10,12 +10,11 @@ from dash import html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-gps_coords = 45.9884966021594, 7.660842528216456
+gps_coords = 46.64290051851402, 8.142050364679308
 # global radius, grid_size
-radius = 2000
+radius = 5000
 grid_size = 10
 path = '/Users/george-birchenough/sunmap_rasters/Switzerland_DEM_10m.tif'
-
 
 def main():
     get_df_lists(gps_coords, radius, grid_size)
@@ -26,25 +25,37 @@ def main():
     month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     app.layout = html.Div(children=[
+
+        html.Div(className=' container',  # Define the row element
+            children=
+                html.Div(html.Img(src=app.get_asset_url('sunmap.png') ),  # Define the left element
+                )
+            ),
    
-        html.Div(
-            # className='row',  # Define the row element
-            children=[
-                dcc.Input(id="input_coords", type="text", value=str(gps_coords)),
-                # dcc.Input(id="input_coords", type="text", value=str(gps_coords[0],  )),
-                html.Button(id='btn_state', n_clicks = 0),
-            ] 
-        ),
+        # html.Div(
+        #     className='row',  # Define the row element
+        #     children=[
+        html.Div(className = ' container ',
+            children = [
+                dcc.Input(id="input_lat", type="text", value=str(gps_coords[0]) ),
+                dcc.Input(id="input_lon", type="text", value=str(gps_coords[1]) ),
+                html.Button('Confirm', id='btn_state', n_clicks = 0),
+                        ]
+                    # )
+            # ]
+        ),  # Define the left elemen
 
         html.Div(className='row',  # Define the row element
             children=[
                 html.Div(className='twelve columns div-for-chart center',
-                children = [
-                    dcc.Graph(
-                        id='plot1',
-                    )
-                ]),  # Define the left element
+                    children = [
+                        dcc.Graph(
+                            id='plot1',
+                        )
+                    ]
+                ),  # Define the left element
             ]),
+
         html.Div(className='row',
             children=[
                 # html.Div(className='10 columns center'),
@@ -65,11 +76,7 @@ def main():
                 )
             ]
         ),
-        html.Div(className='container',  # Define the row element
-            children=
-                html.Div(html.Img(src=app.get_asset_url('sunmap.png') ),  # Define the left element
-                )
-                )
+
     ])
 
     @app.callback(
@@ -82,12 +89,15 @@ def main():
     @app.callback(
         Output('month_slider', 'value'),
         Input('btn_state', 'n_clicks'),
-        State('input_coords', 'value'),
+        State('input_lat', 'value'),
+        State('input_lon', 'value'),
         State('month_slider', 'value'))
-    def update_location(btn_state, input_coords, month):
+    def update_location(btn_state, input_lat, input_lon, month):
         if btn_state > 0:    
-            lat = float( input_coords.partition(',')[0] )
-            lon = float( input_coords.partition(',')[2] )
+            # lat = float( input_coords.partition(',')[0] )
+            # lon = float( input_coords.partition(',')[2] )
+            lat = float(input_lat)
+            lon = float(input_lon)
             new_coords = (lat,lon)
             print('New coords :', new_coords)
             get_df_lists(new_coords, radius, grid_size)

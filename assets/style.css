@@ -40,7 +40,7 @@ Taken from https://codepen.io/chriddyp/pen/bWLwgP.css
 /* For devices larger than 550px */
 @media (min-width: 550px) {
   .container {
-      width: 80%;
+      width: 100%;
  }
   .column, .columns {
       margin-left: 4%;
